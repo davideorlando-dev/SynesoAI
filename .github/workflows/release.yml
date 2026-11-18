@@ -1,0 +1,160 @@
+name: Release
+
+# Pubblica una Release di Syneso da un tag.
+#
+# Gli artefatti della CI scadono dopo pochi giorni e richiedono un account
+# GitHub per essere scaricati: non sono un modo per distribuire l'app. Questo
+# workflow prende gli stessi installer che la CI già costruisce e li allega a
+# una Release, con i checksum e le istruzioni di installazione.
+#
+# Uso:
+#   git tag v0.4.0 && git push origin v0.4.0
+#
+# Il tag deve corrispondere a backend/app/version.py, altrimenti il workflow
+# si ferma prima di costruire qualsiasi cosa. La Release nasce come bozza:
+# la pubblichi tu dopo aver provato gli installer.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    name: Il tag corrisponde alla versione
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compare the tag with app/version.py
+        id: read
+        run: |
+          version="$(python3 scripts/app_version.py)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Versione dichiarata: $version"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "Avvio manuale senza tag: costruisco senza pubblicare."
+            exit 0
+          fi
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Il tag ${GITHUB_REF_NAME} non corrisponde a app/version.py (${version}). Allinea i due e ritagga."
+            exit 1
+          fi
+
+  macos:
+    name: macOS
+    needs: check-version
+    uses: ./.github/workflows/build-macos.yml
+
+  windows:
+    name: Windows
+    needs: check-version
+    uses: ./.github/workflows/build-windows.yml
+
+  publish:
+    name: Pubblica la bozza di Release
+    needs: [check-version, macos, windows]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check-version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Collect the installers built above
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Compute the checksums
+        working-directory: assets
+        run: |
+          ls -la
+          sha256sum *.dmg *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Write the release notes
+        run: |
+          cat > release-notes.md <<'NOTES'
+          ## Installazione
+
+          Scarica il file che corrisponde al tuo computer:
+
+          | File | Per |
+          |---|---|
+          | `Syneso-VERSION-macOS-arm64.dmg` | Mac con Apple Silicon (M1 e successivi) |
+          | `Syneso-VERSION-macOS-x64.dmg` | Mac Intel |
+          | `Syneso-VERSION-Windows-x64.zip` | Windows 10 e 11 (64 bit) |
+
+          ### macOS
+
+          L'app non è firmata con un certificato Apple a pagamento, quindi al
+          primo avvio macOS la blocca. Apri il DMG, trascina Syneso in
+          Applicazioni, poi **clic destro sull'icona → Apri** e conferma. Serve
+          una volta sola. Se compare «l'app è danneggiata», rimuovi la
+          quarantena dal Terminale:
+
+          ```bash
+          xattr -dr com.apple.quarantine /Applications/Syneso.app
+          ```
+
+          ### Windows
+
+          Estrai lo zip dove preferisci e avvia `Syneso.exe` dalla cartella
+          `Syneso`. Anche qui l'eseguibile non è firmato: SmartScreen avvisa, e
+          si procede con **Ulteriori informazioni → Esegui comunque**.
+
+          ### Prima apertura
+
+          Syneso chiede la tua chiave API Groq: la crei gratis su
+          [console.groq.com/keys](https://console.groq.com/keys) e la incolli in
+          **Impostazioni → Chiave API**, poi **Test chiave**. Resta sul tuo
+          computer, in un file leggibile solo dal tuo utente.
+
+          I tuoi PDF, gli appunti e il database restano sul tuo computer. Verso
+          Groq partono solo i frammenti necessari a generare appunti, valutare
+          le spiegazioni e trascrivere la voce.
+
+          ## Verificare il download
+
+          I checksum SHA-256 sono in `SHA256SUMS.txt`, allegato qui sotto.
+
+          ```bash
+          shasum -a 256 -c SHA256SUMS.txt     # macOS
+          sha256sum -c SHA256SUMS.txt         # Linux
+          ```
+
+          ## Licenza
+
+          Software libero sotto AGPL-3.0-or-later. Il codice è in questo
+          repository; le dipendenze e le loro licenze sono elencate in
+          THIRD-PARTY.md.
+          NOTES
+          sed -i "s/VERSION/${VERSION}/g" release-notes.md
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --draft \
+            --title "Syneso ${VERSION}" \
+            --notes-file release-notes.md \
+            assets/*
+          echo "Bozza creata: controlla gli installer e premi «Publish release»."

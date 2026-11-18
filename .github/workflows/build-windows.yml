@@ -1,0 +1,98 @@
+name: Build Syneso Windows
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  # Richiamato da release.yml, come il gemello macOS.
+  workflow_call:
+
+# Una build per piattaforma e per riferimento: i push su main si susseguono
+# più in fretta di quanto duri una build macOS, e senza questo cinque merge di
+# fila mettono in coda cinque build di commit già superati.
+#
+# Il nome del gruppo è scritto a mano e non ricavato da github.workflow:
+# in un workflow richiamato quella variabile vale il nome del chiamante, così
+# le due build di una stessa release finivano nello stesso gruppo e si
+# annullavano a vicenda. Il riferimento tiene separate release (tag) e main.
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build Frontend (Static Export)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv and Python dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip uv
+          uv sync --dev --locked
+
+      - name: Run Backend Test Suite
+        working-directory: backend
+        run: uv run pytest -v
+
+      - name: Read the application version
+        run: |
+          $version = python scripts/app_version.py
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Prepare Windows App Icon
+        working-directory: backend
+        run: |
+          uv run --with pillow python -c "from PIL import Image; image = Image.open('../frontend/public/syneso-icon.png').convert('RGBA').resize((256, 256), Image.Resampling.LANCZOS); image.save('syneso.ico', format='ICO', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+
+      - name: Build Windows Executable
+        working-directory: backend
+        run: |
+          uv run pyinstaller `
+            --noconfirm `
+            --clean `
+            --windowed `
+            --name "Syneso" `
+            --icon "syneso.ico" `
+            --add-data "../frontend/out;frontend_out" `
+            --collect-all rapidocr `
+            --collect-all onnxruntime `
+            --collect-all fsrs `
+            --collect-all pymupdf `
+            --collect-all pymupdf4llm `
+            --collect-all ddgs `
+            --collect-all webview `
+            --collect-all pythonnet `
+            --collect-all clr_loader `
+            launcher.py
+
+      # Un singolo file: una Release pubblica archivi, non cartelle.
+      - name: Package the application as a zip
+        run: |
+          Compress-Archive `
+            -Path backend/dist/Syneso `
+            -DestinationPath "backend/dist/Syneso-$env:APP_VERSION-Windows-x64.zip"
+
+      - name: Upload Syneso-Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Syneso-Windows
+          path: backend/dist/Syneso-${{ env.APP_VERSION }}-Windows-x64.zip
+          if-no-files-found: error

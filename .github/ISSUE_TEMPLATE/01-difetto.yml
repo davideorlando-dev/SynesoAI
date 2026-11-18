@@ -1,0 +1,54 @@
+name: Segnala un difetto
+description: Qualcosa non funziona come dovrebbe
+labels: ["difetto"]
+body:
+  - type: textarea
+    id: cosa-succede
+    attributes:
+      label: Cosa succede
+      description: Cosa stavi facendo, cosa ti aspettavi, cosa è successo invece.
+      placeholder: |
+        Stavo generando gli appunti di un PDF di statistica.
+        Mi aspettavo le formule disegnate.
+        Sono comparse come testo, con le graffe.
+    validations:
+      required: true
+  - type: textarea
+    id: riprodurre
+    attributes:
+      label: Come riprodurlo
+      description: I passi minimi per vederlo succedere.
+      placeholder: |
+        1. Importa un PDF con delle formule
+        2. Apri Studio & Appunti e genera gli appunti
+        3. Guarda la prima formula
+    validations:
+      required: true
+  - type: input
+    id: versione
+    attributes:
+      label: Versione di Syneso
+      description: La trovi in Guida, in fondo alla finestra.
+      placeholder: "0.5.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operativo
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux (da sorgente)
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: "Le righe utili di syneso.log. Togli la chiave API se compare."
+      render: text
+  - type: markdown
+    attributes:
+      value: "Una fotografia dello schermo vale più di una descrizione: trascinala qui."

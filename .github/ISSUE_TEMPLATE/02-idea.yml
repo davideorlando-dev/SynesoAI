@@ -1,0 +1,20 @@
+name: Proponi un'idea
+description: Qualcosa che Syneso dovrebbe saper fare
+labels: ["idea"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Il problema
+      description: Che cosa ti blocca oggi, mentre studi. Non la soluzione, il problema.
+      placeholder: Non so mai quali argomenti ho lasciato indietro rispetto al piano.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Come lo risolveresti
+      description: Se hai un'idea precisa, scrivila. Se non ce l'hai, va bene lo stesso.
+  - type: markdown
+    attributes:
+      value: "Syneso resta un'applicazione locale: le proposte che richiedono un account o un server non rientrano."

@@ -1,0 +1,34 @@
+# Segreti, database e PDF personali (ovunque si trovino)
+.env
+**/.env
+data/
+**/data/
+
+# Python
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# Frontend Node / Next.js
+**/node_modules/
+**/.next/
+**/out/
+
+# macOS
+**/.DS_Store
+**/build/
+**/dist/
+*.spec
+repomix-*.md
+
+# Log dell'app in sviluppo
+syneso.log
+syneso.log.*
+
+# Test end-to-end
+frontend/e2e/.results/
+frontend/e2e/.report/
+frontend/e2e/.screens/
+frontend/playwright-report/
+frontend/test-results/
+backend/tests/e2e/.tmp-data/

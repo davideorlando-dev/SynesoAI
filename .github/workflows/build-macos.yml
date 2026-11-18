@@ -1,0 +1,138 @@
+name: Build Syneso macOS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  # Richiamato da release.yml: il workflow di release non duplica questi passi,
+  # li riusa, così build di prova e build pubblicata restano la stessa cosa.
+  workflow_call:
+
+# Una build per piattaforma e per riferimento: i push su main si susseguono
+# più in fretta di quanto duri una build macOS, e senza questo cinque merge di
+# fila mettono in coda cinque build di commit già superati.
+#
+# Il nome del gruppo è scritto a mano e non ricavato da github.workflow:
+# in un workflow richiamato quella variabile vale il nome del chiamante, così
+# le due build di una stessa release finivano nello stesso gruppo e si
+# annullavano a vicenda. Il riferimento tiene separate release (tag) e main.
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: Build macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build Frontend (Static Export)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv and Python dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip uv
+          uv sync --dev --locked
+
+      - name: Read the application version
+        run: echo "APP_VERSION=$(python3 scripts/app_version.py)" >> "$GITHUB_ENV"
+
+      - name: Prepare macOS App Icon
+        working-directory: backend
+        run: |
+          mkdir -p syneso.iconset
+          sips -z 1024 1024 ../frontend/public/syneso-icon.png --out syneso-icon-1024.png >/dev/null
+          sips -z 16 16 syneso-icon-1024.png --out syneso.iconset/icon_16x16.png >/dev/null
+          sips -z 32 32 syneso-icon-1024.png --out syneso.iconset/icon_16x16@2x.png >/dev/null
+          sips -z 32 32 syneso-icon-1024.png --out syneso.iconset/icon_32x32.png >/dev/null
+          sips -z 64 64 syneso-icon-1024.png --out syneso.iconset/icon_32x32@2x.png >/dev/null
+          sips -z 128 128 syneso-icon-1024.png --out syneso.iconset/icon_128x128.png >/dev/null
+          sips -z 256 256 syneso-icon-1024.png --out syneso.iconset/icon_128x128@2x.png >/dev/null
+          sips -z 256 256 syneso-icon-1024.png --out syneso.iconset/icon_256x256.png >/dev/null
+          sips -z 512 512 syneso-icon-1024.png --out syneso.iconset/icon_256x256@2x.png >/dev/null
+          sips -z 512 512 syneso-icon-1024.png --out syneso.iconset/icon_512x512.png >/dev/null
+          sips -z 1024 1024 syneso-icon-1024.png --out syneso.iconset/icon_512x512@2x.png >/dev/null
+          iconutil -c icns syneso.iconset -o syneso.icns
+
+      - name: Run Backend Test Suite
+        working-directory: backend
+        run: uv run pytest -v
+
+      - name: Build macOS Application
+        working-directory: backend
+        run: |
+          uv run pyinstaller \
+            --noconfirm \
+            --clean \
+            --windowed \
+            --name "Syneso" \
+            --icon "syneso.icns" \
+            --osx-bundle-identifier "com.syneso.desktop" \
+            --add-data "../frontend/out:frontend_out" \
+            --collect-all rapidocr \
+            --collect-all onnxruntime \
+            --collect-all fsrs \
+            --collect-all pymupdf \
+            --collect-all pymupdf4llm \
+            --collect-all ddgs \
+            --collect-all webview \
+            --collect-all pythonnet \
+            --collect-all clr_loader \
+            launcher.py
+
+      - name: Configure macOS Microphone Permission
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'Syneso uses the microphone to record spoken study explanations and transcribe them when requested.'" backend/dist/Syneso.app/Contents/Info.plist
+          plutil -lint backend/dist/Syneso.app/Contents/Info.plist
+
+      - name: Re-sign and verify macOS application
+        run: |
+          codesign --force --sign - --timestamp=none backend/dist/Syneso.app
+          codesign --verify --deep --strict --verbose=2 backend/dist/Syneso.app
+
+      - name: Create DMG
+        env:
+          DMG_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p dmg-root
+          cp -R backend/dist/Syneso.app dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create \
+            -volname "Syneso ${APP_VERSION}" \
+            -srcfolder dmg-root \
+            -ov \
+            -format UDZO \
+            "backend/dist/Syneso-${APP_VERSION}-macOS-${DMG_ARCH}.dmg"
+
+      - name: Upload Syneso macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Syneso-macOS-${{ matrix.arch }}
+          path: backend/dist/Syneso-${{ env.APP_VERSION }}-macOS-${{ matrix.arch }}.dmg
+          if-no-files-found: error

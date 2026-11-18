@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+/**
+ * I token del sistema visivo. La loro ragione sta in DESIGN.md, alla radice del
+ * repository: quel documento spiega perché i colori sono questi e dove ciascuno
+ * può stare. Qui ci sono solo i valori.
+ *
+ * Nessun esadecimale va scritto a mano in un componente: si usano le classi che
+ * questi token generano (bg-canvas, text-ink-700, border-line).
+ */
+@theme {
+  /* Superfici: carta, non vetro. */
+  --color-canvas: #f4f1ea;
+  --color-paper: #fdfcf9;
+  --color-sunken: #ebe7dc;
+  --color-ink-surface: #141414;
+
+  /* Inchiostri, grigi caldi. ink-500 è il minimo leggibile sulla tela. */
+  --color-ink-900: #141414;
+  --color-ink-800: #2b2824;
+  --color-ink-700: #46413a;
+  --color-ink-600: #5f594f;
+  --color-ink-500: #6e6758;
+  --color-ink-400: #9a9285;
+  --color-ink-300: #bab2a3;
+
+  /* Filetti. */
+  --color-line: #dcd5c7;
+  --color-line-strong: #cfc7b4;
+
+  /* Oro: gold-500 riempie e non dice mai niente, gold-800 è l'unico che
+     può portare testo piccolo. */
+  --color-gold-100: #f7efdc;
+  --color-gold-200: #efe2c2;
+  --color-gold-500: #d4a848;
+  --color-gold-700: #a57a22;
+  --color-gold-800: #8a6214;
+
+  /* Stati, ritarati sul caldo. */
+  --color-ok: #3f6b4a;
+  --color-ok-soft: #e7eee6;
+  --color-warn: #8a5a12;
+  --color-warn-soft: #f7eeda;
+  --color-danger: #8f2f2a;
+  --color-danger-soft: #f6e6e2;
+
+  /* Velo delle finestre: resta scuro in tutti e due i temi. */
+  --color-scrim: rgb(20 20 20 / 0.45);
+
+  /* Oro sopra il blocco pieno: nel tema scuro quel blocco diventa chiaro. */
+  --color-gold-on-ink: #d4a848;
+
+  /* Riempimenti pieni che portano testo bianco: restano scuri sempre. */
+  --color-danger-fill: #8f2f2a;
+  --color-warn-fill: #8a5a12;
+
+  /* Evidenziatore: un pennarello è chiaro anche di notte. */
+  --color-mark-yellow: #f2d879;
+  --color-mark-green: #a8d8ae;
+  --color-mark-pink: #f0b3ac;
+  --color-mark-blue: #bcd3ea;
+  --color-on-mark: #141414;
+
+  --radius-card: 14px;
+}
+
+/*
+ * Tema scuro.
+ *
+ * Non è una seconda tavolozza: è la stessa, girata. Inchiostro e tela si
+ * scambiano — --color-ink-900 diventa crema e --color-canvas diventa nero —
+ * e per questo ogni bottone primario (fondo inchiostro, testo tela) e ogni
+ * titolo si invertono da soli, senza una classe in più nei componenti.
+ *
+ * Quello che non si inverte è elencato sopra: il velo delle finestre, i
+ * riempimenti pieni che portano testo bianco e l'evidenziatore.
+ */
+@layer theme {
+  .theme-dark {
+    --color-canvas: #141414;
+    --color-paper: #1d1c1a;
+    --color-sunken: #0e0e0d;
+    --color-ink-surface: #f4f1ea;
+
+    --color-ink-900: #f4f1ea;
+    --color-ink-800: #e4dfd4;
+    --color-ink-700: #ccc6b9;
+    --color-ink-600: #aea89b;
+    --color-ink-500: #948d80;
+    --color-ink-400: #6e6a61;
+    --color-ink-300: #4c4943;
+
+    --color-line: #2e2b27;
+    --color-line-strong: #403c35;
+
+    --color-gold-100: #2a2318;
+    --color-gold-200: #3a3021;
+    --color-gold-500: #d4a848;
+    --color-gold-700: #c99a3c;
+    --color-gold-800: #e0b765;
+    --color-gold-on-ink: #8a6214;
+
+    --color-ok: #7fb38c;
+    --color-ok-soft: #1a2a1e;
+    --color-warn: #d9a04a;
+    --color-warn-soft: #2a2113;
+    --color-danger: #e08a80;
+    --color-danger-soft: #2e1a18;
+
+    --color-scrim: rgb(0 0 0 / 0.6);
+  }
+}
+
+
+:root {
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink-900);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-editorial);
+  --font-title: var(--font-instrument-serif);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-editorial {
+  font-family: var(--font-editorial), Georgia, serif;
+}
+
+/* Una scheda si distingue perché è carta sulla tela e porta un filetto, non
+   perché galleggia: niente ombra (DESIGN.md §5). */
+.card-surface {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+.prose-syneso table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.prose-syneso th {
+  background: var(--color-sunken);
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.prose-syneso td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  color: var(--color-ink-700);
+}
+
+.prose-syneso tr:last-child td {
+  border-bottom: none;
+}
+
+/* Citazioni e codice dentro gli appunti: erano rimasti indaco su bianco,
+   cioè illeggibili nel tema scuro. */
+.prose-syneso blockquote {
+  border-left: 3px solid var(--color-gold-700);
+  background: var(--color-sunken);
+  padding: 0.5rem 0.875rem;
+  margin: 0.75rem 0;
+  color: var(--color-ink-700);
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.prose-syneso code {
+  background: var(--color-sunken);
+  padding: 0.125rem 0.35rem;
+  border-radius: 0.3rem;
+  font-size: 0.8em;
+  color: var(--color-ink-800);
+  font-family: var(--font-geist-mono), monospace;
+}
+
+/*
+ * L'anello del fuoco.
+ *
+ * Esiste perché l'alternativa è quella di prima: ventisei «outline-none»
+ * sparsi nei componenti e niente al loro posto, cioè nessun modo di sapere
+ * dove sei se navighi con Tab. Sta qui, una volta sola, e usa l'oro: è
+ * l'unica cosa che nel tema chiaro e in quello scuro resta sempre visibile.
+ *
+ * :focus-visible e non :focus — il browser lo mostra a chi usa la tastiera e
+ * non a chi ha appena cliccato, che sa già dove si trova.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-gold-700);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Formule dentro il testo e dentro le tabelle.
+ *
+ * KaTeX compone una frazione con pezzi posizionati uno sull'altro: se la
+ * cella è più stretta della formula, il browser manda a capo e i pezzi si
+ * accavallano — è il «F1-score» illeggibile della segnalazione. La formula
+ * non va mai spezzata: se non ci sta, si fa scorrere.
+ */
+.prose-syneso .katex {
+  white-space: nowrap;
+}
+
+.prose-syneso .katex-display {
+  margin: 0.6rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.15rem;
+}
+
+/* In una cella una formula è un valore, non un blocco centrato. */
+.prose-syneso td .katex-display,
+.prose-syneso th .katex-display {
+  margin: 0;
+  text-align: left;
+}
+
+/* Un errore di sintassi del modello si vede, ma non si prende la pagina. */
+.prose-syneso .katex-error {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  color: var(--color-danger);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.8em;
+}

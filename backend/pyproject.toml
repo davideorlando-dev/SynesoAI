@@ -1,0 +1,56 @@
+[project]
+name = "syneso-backend"
+# Allineata a app/version.py, che è la fonte: un test lo verifica.
+version = "0.5.1"
+description = "Cloud AI study orchestrator backend (Groq)"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlmodel>=0.0.22",
+    "pydantic-settings>=2.6.0",
+    "python-multipart>=0.0.17",
+    "httpx>=0.27.0",
+    "pymupdf>=1.28.2,<2",
+    "pymupdf4llm>=0.0.17,<2",
+    "ddgs>=8.0.0",
+    "fsrs>=6.0.0,<7.0.0",
+    "rapidocr>=3.10.0",
+    "onnxruntime>=1.31.1; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "onnxruntime==1.21.0; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "pywebview>=6.2.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pyinstaller>=6.22.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:builtin type SwigPy.*:DeprecationWarning",
+    "ignore:builtin type swigvarlink.*:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated.*:DeprecationWarning",
+]
+
+[tool.ruff]
+target-version = "py311"
+extend-exclude = ["build", "dist"]
+
+[tool.ruff.lint]
+# E/F: errori e nomi non usati; B: bug probabili (flake8-bugbear).
+# E501 (lunghezza riga) resta escluso finché il codice non viene formattato in blocco.
+select = ["E", "F", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Query",
+]

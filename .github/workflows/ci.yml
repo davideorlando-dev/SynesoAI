@@ -1,0 +1,174 @@
+name: CI
+
+# Controlli veloci su ogni pull request e su main: lint, test e build del frontend.
+# Le build degli installer (macOS, Windows) restano nei workflow dedicati e
+# partono solo dopo il merge, perché sono lente e dipendono dalla disponibilità
+# dei runner.
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  RUFF_VERSION: "0.16.9"
+
+jobs:
+  backend:
+    name: Backend (lint + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Lint
+        run: uvx "ruff@${RUFF_VERSION}" check .
+
+      - name: Install dependencies from the lockfile
+        run: uv sync --dev --locked
+
+      - name: Run test suite
+        run: uv run pytest -v
+
+  frontend:
+    name: Frontend (lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies from the lockfile
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Moduli puri, provati da Node senza dipendenze: girano prima della
+      # compilazione perche' falliscono in un secondo e dicono di piu'.
+      - name: Unit-test the pure modules
+        run: npm run test:unit
+
+      - name: Type-check and build (static export)
+        run: npm run build
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      # Il backend di prova e' l'applicazione vera: gli servono le stesse
+      # dipendenze, perche' legge i PDF e applica le migrazioni per davvero.
+      - name: Install backend dependencies from the lockfile
+        run: uv sync --dev --locked
+        working-directory: backend
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies from the lockfile
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      # Playwright avvia da solo il backend di prova e il frontend.
+      - name: Run the end-to-end tests
+        run: npm run test:e2e
+        working-directory: frontend
+
+      # Oltre all'allegato, le immagini finiscono su un ramo dedicato: un
+      # allegato si scarica da un host che non tutti raggiungono, un ramo lo
+      # legge chiunque abbia il repository — compreso chi lavora da remoto.
+      - name: Publish the screenshots to the screens branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -d frontend/e2e/.screens ]; then
+            echo "Nessuna immagine da pubblicare."
+            exit 0
+          fi
+          cd frontend/e2e/.screens
+          cat > README.md <<'INDEX'
+          # Schermate di Syneso
+
+          Fotografate automaticamente dai test end-to-end a ogni run della CI.
+          Questo ramo viene riscritto ogni volta: contiene sempre e solo le
+          ultime immagini, non una storia.
+          INDEX
+          git init -q .
+          git checkout -q -b screens
+          git add -A
+          git -c user.email=noreply@github.com -c user.name="Syneso CI" \
+            commit -q -m "Schermate da ${GITHUB_REF_NAME} (${GITHUB_SHA})"
+          git push -q --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" screens
+
+      - name: Upload the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens
+          path: frontend/e2e/.screens/
+          # Le cartelle iniziano con un punto, e per questa azione un file
+          # nascosto non esiste: senza questa riga l'allegato resta vuoto.
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload the report when a test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          include-hidden-files: true
+          path: |
+            frontend/e2e/.report/
+            frontend/e2e/.results/
+          retention-days: 7
