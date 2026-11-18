@@ -152,8 +152,31 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # --target ancora il rilascio al commit, non al tag.
+          #
+          # Cancellare una bozza dall'interfaccia porta via anche il tag che la
+          # reggeva. Se succede mentre questo workflow sta costruendo — e
+          # costruire tre installer prende dieci minuti — l'ultimo passo trova
+          # il tag sparito e fallisce dopo aver fatto tutto il lavoro. Con
+          # --target il tag viene ricreato qui, su questo commit.
+          #
+          # E se una bozza per lo stesso tag esiste già, va tolta prima:
+          # altrimenti il secondo tentativo fallisce per un rilascio che c'è.
+          # Solo le bozze: un rilascio già pubblicato non si tocca, o una
+          # riesecuzione distratta cancellerebbe quello che la gente scarica.
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            if [ "$(gh release view "${GITHUB_REF_NAME}" --json isDraft -q .isDraft)" = "true" ]; then
+              echo "C'è già una bozza per ${GITHUB_REF_NAME}: la rifaccio."
+              gh release delete "${GITHUB_REF_NAME}" --yes --cleanup-tag
+            else
+              echo "::error::${GITHUB_REF_NAME} è già pubblicata. Per rifarla, alza la versione e usa un tag nuovo."
+              exit 1
+            fi
+          fi
+
           gh release create "${GITHUB_REF_NAME}" \
             --draft \
+            --target "${GITHUB_SHA}" \
             --title "Syneso ${VERSION}" \
             --notes-file release-notes.md \
             assets/*
