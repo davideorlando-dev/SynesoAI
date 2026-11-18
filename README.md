@@ -362,7 +362,7 @@ The suite covers import, notes and highlights, mock exams, persistence, the home
 
 ```bash
 git clone https://github.com/davideorlando-dev/SynesoAI.git
-cd Syneso
+cd SynesoAI
 
 cd backend && uv sync --dev && cd ..
 cd frontend && npm install && cd ..
@@ -381,8 +381,8 @@ The **Build Syneso macOS** and **Build Syneso Windows** workflows build the fron
 The **Release** workflow reuses those same two builds and attaches their installers to a GitHub Release:
 
 ```bash
-git tag v0.4.0
-git push origin v0.4.0
+git tag v0.5.1
+git push origin v0.5.1
 ```
 
 The tag must match `backend/app/version.py`, or the workflow stops before building anything. It produces a **draft** release with the DMGs, the Windows zip, `SHA256SUMS.txt` and installation notes; you try the installers and press *Publish release*.

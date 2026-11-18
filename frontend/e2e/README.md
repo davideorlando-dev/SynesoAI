@@ -10,8 +10,8 @@ chiave API o dalla rete, e danno sempre lo stesso risultato.
 
 ```bash
 cd frontend
-npm install -D @playwright/test
-npx playwright install --with-deps chromium
+npm install                                    # Playwright è già fra le dipendenze
+npx playwright install --with-deps chromium    # scarica il browser
 ```
 
 ## Eseguirli
@@ -28,22 +28,36 @@ prova usa una cartella dati temporanea, ricreata a ogni avvio.
 
 ## Cosa coprono oggi
 
+Undici file, diciotto prove.
+
 | File | Percorso verificato |
 |---|---|
 | `exam-import.spec.ts` | creazione di un esame, import del PDF in background, apertura del piano; file non valido rifiutato |
+| `onboarding.spec.ts` | primo accesso: nome richiesto, pulsante spento sotto i due caratteri, nome ricordato dopo un ricaricamento |
+| `home-timeline.spec.ts` | la home: conto alla rovescia, proiezione con tempo abbondante e con tempo contato, nessun conto senza data d'esame |
+| `notes.spec.ts` | appunti generati, testo evidenziato col mouse, evidenziazione ritrovata dopo un ricaricamento; formule disegnate da KaTeX |
+| `topic-map.spec.ts` | mappa dei prerequisiti: nodi, legame disegnato, e il nodo che apre il suo argomento |
+| `flashcards.spec.ts` | ripasso FSRS: la risposta coperta finché non la si chiede, il voto che toglie la carta dal mazzo di oggi |
 | `mock-exam.spec.ts` | simulazione generata, compilata e corretta: 30/30 con tutte le risposte, 15/30 con una in bianco |
 | `persistence.spec.ts` | bozza Feynman e conversazione col tutor ritrovate dopo un ricaricamento |
-| `screens.spec.ts` | non verifica: fotografa le schermate principali e le allega alla run della CI |
-| `notes.spec.ts` | appunti generati, testo evidenziato col mouse, evidenziazione ritrovata dopo un ricaricamento |
+| `keyboard.spec.ts` | il fuoco che non esce da una finestra aperta, e l'anello visibile sul primo elemento raggiunto con Tab |
+| `error-pages.spec.ts` | un indirizzo inesistente mostra la pagina «non esiste», non il vuoto |
+| `screens.spec.ts` | non verifica: fotografa le schermate principali, tema chiaro e scuro, e le spinge sul ramo `screens` |
 
-In arrivo: evidenziazioni sugli appunti, e la schermata di primo accesso.
+Restano scoperti il percorso Feynman completo — scrivere una spiegazione,
+riceverne la valutazione, trasformare le lacune in flashcard — e il cambio di
+tema, che oggi è provato solo dalle fotografie.
 
 ## Stato di partenza
 
-I test partono da un utente che ha già usato l'app: al primo accesso
-l'interfaccia è un'altra, senza intestazione né pannello degli import, e
-merita un test suo. La lingua è fissata in italiano, altrimenti segue quella
-del browser. Chi ha bisogno di un esame già importato lo prepara con
+I test partono da un utente che ha già usato l'app: la base semina nome e
+lingua prima di ogni pagina, altrimenti ogni prova passerebbe dalla schermata
+di primo accesso. Chi quella schermata la deve provare usa `forgetUser`, che
+dimentica l'utente solo al primo caricamento della scheda. Anche la lingua è
+fissata in italiano, altrimenti segue quella del browser e in CI sarebbe
+inglese.
+
+Chi ha bisogno di un esame già importato lo prepara con
 `createExamWithImport`, che parla direttamente col backend: l'import
 dall'interfaccia ha già il suo test e rifarlo a mano ogni volta renderebbe
 ambiguo ogni fallimento.
